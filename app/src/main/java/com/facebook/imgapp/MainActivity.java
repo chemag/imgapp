@@ -258,6 +258,10 @@ public class MainActivity extends AppCompatActivity {
         } else {  // decode
             Log.d(TAG, "performImageCodecTest: decoding " + inputPath + " into " + outputPath);
             Bitmap bitmap = readEncodedFileToBitmap(inputPath);
+            if (bitmap == null) {
+                Log.e(TAG, "error: cannot read/decode " + inputPath);
+                return;
+            }
             writeBitmapToRawFile(bitmap, outputPath);
         }
     }
