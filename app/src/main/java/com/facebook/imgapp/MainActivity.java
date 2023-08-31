@@ -134,10 +134,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Bitmap readRawFileToBitmap(String inputPath, int width, int height) {
-        // TODO(chema): Implement Me
-        Log.e(TAG, "error: readRawFileToBitmap unimplemented");
-        exit();
-
         // 1. read the input raw file
         byte[] bytes = null;
         try {
@@ -252,8 +248,15 @@ public class MainActivity extends AppCompatActivity {
         String outputPath = mInputParameters.getString(CliSettings.OUTPUT);
 
         if (mInputParameters.containsKey(CliSettings.ENCODE)) {
-            Log.d(TAG, "performImageCodecTest: encoding " + inputPath + " into " + outputPath);
-            Bitmap bitmap = readRawFileToBitmap(inputPath, 100, 100);
+            // for raw images, we need both width and height
+            if ((! mInputParameters.containsKey(CliSettings.WIDTH)) || (! mInputParameters.containsKey(CliSettings.HEIGHT))) {
+                Log.e(TAG, "error: need to specify both a \"width\" and a \"height\" parameter");
+                return;
+            }
+            int width = Integer.parseInt(mInputParameters.getString(CliSettings.WIDTH, "0"));
+            int height = Integer.parseInt(mInputParameters.getString(CliSettings.HEIGHT, "0"));
+            Log.d(TAG, "performImageCodecTest: encoding " + inputPath + " (" + width + "x" + height + ") into " + outputPath);
+            Bitmap bitmap = readRawFileToBitmap(inputPath, width, height);
             writeBitmapToEncodedFile(bitmap, outputPath);
         } else {  // decode
             Log.d(TAG, "performImageCodecTest: decoding " + inputPath + " into " + outputPath);

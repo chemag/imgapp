@@ -14,6 +14,8 @@ public class CliSettings {
     public static final String DECODE = "decode";
     public static final String INPUT = "input";
     public static final String OUTPUT = "output";
+    public static final String WIDTH = "width";
+    public static final String HEIGHT = "height";
     public static final String WORKDIR = "workdir";
 
     private static String mWorkDir = "/sdcard/";
