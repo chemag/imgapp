@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Bitmap.CompressFormat;
+import android.graphics.ColorSpace;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -156,9 +157,28 @@ public class MainActivity extends AppCompatActivity {
         return bitmap;
     }
 
+    private BitmapFactory.Options getBitmapFactoryOptions() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        if (mInputParameters.containsKey(CliSettings.INPREFERREDCOLORSPACE)) {
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
+                Log.d(TAG, "getBitmapFactoryOptions(): build version (" + android.os.Build.VERSION.SDK_INT + ") does not support inPreferredColorSpace");
+            } else {
+                String name = mInputParameters.getString(CliSettings.INPREFERREDCOLORSPACE);
+                try {
+                    ColorSpace.Named value = ColorSpace.Named.valueOf(name);
+                    options.inPreferredColorSpace = ColorSpace.get(value);
+                } catch (IllegalArgumentException e1) {
+                    Log.e(TAG, "getBitmapFactoryOptions(): invalid inPreferredColorSpace parameter: " + name);
+                    exit();
+                }
+            }
+        }
+        return options;
+    }
+
     private Bitmap readEncodedFileToBitmap(String inputPath) {
         // https://stackoverflow.com/a/19172326
-        Bitmap bitmap = BitmapFactory.decodeFile(inputPath);
+        Bitmap bitmap = BitmapFactory.decodeFile(inputPath, getBitmapFactoryOptions());
         return bitmap;
     }
 

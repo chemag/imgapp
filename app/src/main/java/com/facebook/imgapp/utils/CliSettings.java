@@ -17,7 +17,13 @@ public class CliSettings {
     public static final String WIDTH = "width";
     public static final String HEIGHT = "height";
     public static final String WORKDIR = "workdir";
-
+    // BitmapFactory.Options
+    // Valid values: ["ACES", "ACESCG", "ADOBE_RGB", "BT2020",
+    // "BT2020_HLG", "BT2020_PQ", "BT709", "CIE_LAB", "CIE_XYZ",
+    // "DCI_P3", "DISPLAY_P3", "EXTENDED_SRGB", "LINEAR_EXTENDED_SRGB",
+    // "LINEAR_SRGB", "NTSC_1953", "PRO_PHOTO_RGB", "SMPTE_C", "SRGB"]
+    public static final String INPREFERREDCOLORSPACE = "inPreferredColorSpace";
+    // other
     private static String mWorkDir = "/sdcard/";
 
     public static void setWorkDir(Context context, Bundle mExtraData) {
