@@ -191,11 +191,12 @@ public class MainActivity extends AppCompatActivity {
         int numberOfPixels = width * height;
 
         // create output streams
-        FileOutputStream outputStream = null;
+        FileOutputStream fileOutputStream = null;
         BufferedOutputStream bufferedOutputStream = null;
+        Log.d(TAG, "writeBitmapToRawFile(bitmap: " + width + "x" + height + ", outputPath: " + outputPath + ")");
         try {
-            outputStream = new FileOutputStream(outputPath);
-            bufferedOutputStream = new BufferedOutputStream(outputStream);
+            fileOutputStream = new FileOutputStream(outputPath);
+            bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
 
             // write all the bits using packed RGBA
             for (int y = 0; y < height; y++) {
@@ -211,17 +212,11 @@ public class MainActivity extends AppCompatActivity {
                     bufferedOutputStream.write(alpha);
                 }
             }
+            // clean up
+            bufferedOutputStream.flush();
+            bufferedOutputStream.close();
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                    bufferedOutputStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
         }
         return true;
     }
@@ -265,9 +260,5 @@ public class MainActivity extends AppCompatActivity {
             Bitmap bitmap = readEncodedFileToBitmap(inputPath);
             writeBitmapToRawFile(bitmap, outputPath);
         }
-        // TODO(chema): there should be a better way to do this
-        // leave time for the writers to finish
-        // https://stackoverflow.com/a/14615606
-        SystemClock.sleep(5000);
     }
 }
