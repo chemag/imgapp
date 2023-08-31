@@ -23,6 +23,11 @@ public class CliSettings {
     // "DCI_P3", "DISPLAY_P3", "EXTENDED_SRGB", "LINEAR_EXTENDED_SRGB",
     // "LINEAR_SRGB", "NTSC_1953", "PRO_PHOTO_RGB", "SMPTE_C", "SRGB"]
     public static final String INPREFERREDCOLORSPACE = "inPreferredColorSpace";
+    // Bitmap.compress
+    // Valid values: ["JPEG", "PNG", "WEBP_LOSSLESS", "WEBP_LOSSY"]
+    public static final String COMPRESSFORMAT = "compressFormat";
+    // Valid values: 0 to 100
+    public static final String COMPRESSQUALITY = "compressQuality";
     // other
     private static String mWorkDir = "/sdcard/";
 

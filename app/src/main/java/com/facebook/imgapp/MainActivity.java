@@ -183,10 +183,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean writeBitmapToEncodedFile(Bitmap bitmap, String outputPath) {
+        // get the compress format
+        CompressFormat compressFormat = null;
+        if (! mInputParameters.containsKey(CliSettings.COMPRESSFORMAT)) {
+            // default value
+            compressFormat = CompressFormat.PNG;
+        } else {
+            String compressFormatName = null;
+            try {
+                compressFormatName = mInputParameters.getString(CliSettings.COMPRESSFORMAT);
+                compressFormat = CompressFormat.valueOf(compressFormatName);
+            } catch (IllegalArgumentException e1) {
+                Log.e(TAG, "readEncodedFileToBitmap(): invalid CompressFormat parameter: " + compressFormatName);
+                exit();
+            }
+        }
+        // get the compress quality
+        int compressQuality = -1;
+        if (! mInputParameters.containsKey(CliSettings.COMPRESSQUALITY)) {
+            // default value
+            compressQuality = 0;
+        } else {
+            String compressQualityStr = mInputParameters.getString(CliSettings.COMPRESSQUALITY, "0");
+            try {
+                compressQuality = Integer.parseInt(compressQualityStr);
+            } catch (java.lang.NumberFormatException ex) {
+                Log.e(TAG, "error: invalid compressQuality parameter: " + compressQualityStr);
+                return false;
+            }
+        }
         // https://stackoverflow.com/a/7780289
         // 1. encode bitmap into byte array
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        bitmap.compress(CompressFormat.PNG, 0 /*ignored for PNG*/, bos);
+        bitmap.compress(compressFormat, compressQuality, bos);
         byte[] byteArray = bos.toByteArray();
 
         // 2. write byte array to file
