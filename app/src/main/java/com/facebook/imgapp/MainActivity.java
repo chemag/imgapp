@@ -273,8 +273,22 @@ public class MainActivity extends AppCompatActivity {
                 Log.e(TAG, "error: need to specify both a \"width\" and a \"height\" parameter");
                 return;
             }
-            int width = Integer.parseInt(mInputParameters.getString(CliSettings.WIDTH, "0"));
-            int height = Integer.parseInt(mInputParameters.getString(CliSettings.HEIGHT, "0"));
+            int width = 0;
+            int height = 0;
+            String widthStr = mInputParameters.getString(CliSettings.WIDTH, "0");
+            try {
+                width = Integer.parseInt(widthStr);
+            } catch (java.lang.NumberFormatException ex) {
+                Log.e(TAG, "error: invalid width parameter: " + widthStr);
+                return;
+            }
+            String heightStr = mInputParameters.getString(CliSettings.HEIGHT, "0");
+            try {
+                height = Integer.parseInt(heightStr);
+            } catch (java.lang.NumberFormatException ex) {
+                Log.e(TAG, "error: invalid height parameter: " + heightStr);
+                return;
+            }
             Log.d(TAG, "performImageCodecTest: encoding " + inputPath + " (" + width + "x" + height + ") into " + outputPath);
             Bitmap bitmap = readRawFileToBitmap(inputPath, width, height);
             writeBitmapToEncodedFile(bitmap, outputPath);
