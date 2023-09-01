@@ -319,15 +319,20 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             Log.d(TAG, "performImageCodecTest: encoding " + inputPath + " (" + width + "x" + height + ") into " + outputPath);
+            // 1. read raw file into bitmap
             Bitmap bitmap = readRawFileToBitmap(inputPath, width, height);
+            // 2. write bitmap into encoded file
             writeBitmapToEncodedFile(bitmap, outputPath);
+
         } else {  // decode
+            // 1. read encoded file into bitmap
             Log.d(TAG, "performImageCodecTest: decoding " + inputPath + " into " + outputPath);
             Bitmap bitmap = readEncodedFileToBitmap(inputPath);
             if (bitmap == null) {
                 Log.e(TAG, "error: cannot read/decode " + inputPath);
                 return;
             }
+            // 2. write bitmap into raw file
             writeBitmapToRawFile(bitmap, outputPath);
         }
     }
