@@ -194,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
                 compressFormatName = mInputParameters.getString(CliSettings.COMPRESSFORMAT);
                 compressFormat = CompressFormat.valueOf(compressFormatName);
             } catch (IllegalArgumentException e1) {
-                Log.e(TAG, "readEncodedFileToBitmap(): invalid CompressFormat parameter: " + compressFormatName);
+                Log.e(TAG, "writeBitmapToEncodedFile(): invalid CompressFormat parameter: " + compressFormatName);
                 exit();
             }
         }
