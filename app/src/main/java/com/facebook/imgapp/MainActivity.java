@@ -247,10 +247,12 @@ public class MainActivity extends AppCompatActivity {
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     int pixel = bitmap.getPixel(x, y);
+                    // read pixels as ARGB (packed ARGB)
+                    int alpha = (pixel >> 24) & 0xff;
                     int red = (pixel >> 16) & 0xff;
                     int green = (pixel >> 8) & 0xff;
                     int blue = pixel & 0xff;
-                    int alpha = (pixel >> 24) & 0xff;
+                    // write pixels using rgba (packed RGBA)
                     bufferedOutputStream.write(red);
                     bufferedOutputStream.write(green);
                     bufferedOutputStream.write(blue);
