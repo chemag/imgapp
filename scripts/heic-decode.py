@@ -173,7 +173,19 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
 
-    # 2. run imgapp
+    # 2. spin until the infile path is finished
+    expected_size = os.stat(infile).st_size
+    while True:
+        command = f"adb shell stat -c %s {infile_path}"
+        returncode, out, err = run(command, debug=debug)
+        assert returncode == 0, "error: %s" % err
+        size = int(out)
+        if debug > 0:
+            print(f"{infile_path} -> {size}")
+        if size == expected_size:
+            break
+
+    # 3. run imgapp
     outfile = outfile if outfile else f"{infile}.rgba"
     outfile_name = os.path.split(outfile)[1]
     outfile_path = os.path.join(tmpdir, f"{outfile_name}")
@@ -182,7 +194,7 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
 
-    # 3. spin until the outfile path is done
+    # 4. spin until the outfile path is done
     width, height = get_heic_resolution(infile, debug)
     expected_size = 4 * width * height
     while True:
@@ -195,7 +207,7 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
         if size == expected_size:
             break
 
-    # 4. pull the outfile
+    # 5. pull the outfile
     command = f"adb pull {outfile_path} {outfile}"
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
