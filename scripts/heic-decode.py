@@ -33,6 +33,7 @@ INPREFERREDCOLORSPACE_CHOICES = [
     "BT2020_HLG", "BT2020_PQ", "BT709", "CIE_LAB", "CIE_XYZ",
     "DCI_P3", "DISPLAY_P3", "EXTENDED_SRGB", "LINEAR_EXTENDED_SRGB",
     "LINEAR_SRGB", "NTSC_1953", "PRO_PHOTO_RGB", "SMPTE_C", "SRGB",
+    "None",
 ]
 
 default_values = {
@@ -192,7 +193,9 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     tmp_suffix = os.path.split(tempfile.NamedTemporaryFile().name)[1]
     outfile_name = f"{outfile_name}.{tmp_suffix}"
     outfile_path = os.path.join(tmpdir, f"{outfile_name}")
-    inPreferredColorSpace_str = "" if inPreferredColorSpace is None else f"-e inPreferredColorSpace {inPreferredColorSpace}"
+    inPreferredColorSpace_str = ""
+    if inPreferredColorSpace is not None and inPreferredColorSpace != "None":
+        inPreferredColorSpace_str = f"-e inPreferredColorSpace {inPreferredColorSpace}"
     command = f"adb shell am start -W -e decode a -e input {infile_path} {inPreferredColorSpace_str} -e output {outfile_path} com.facebook.imgapp/.MainActivity"
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
