@@ -200,6 +200,8 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     while True:
         command = f"adb shell stat -c %s {outfile_path}"
         returncode, out, err = run(command, debug=debug)
+        if returncode != 0 and b"No such file or directory" in err:
+            continue
         assert returncode == 0, "error: %s" % err
         size = int(out)
         if debug > 0:
