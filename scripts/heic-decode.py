@@ -27,11 +27,19 @@ import sys
 
 PROC_CHOICES = ["decode", "analyze"]
 
+INPREFERREDCOLORSPACE_CHOICES = [
+    "ACES", "ACESCG", "ADOBE_RGB", "BT2020",
+    "BT2020_HLG", "BT2020_PQ", "BT709", "CIE_LAB", "CIE_XYZ",
+    "DCI_P3", "DISPLAY_P3", "EXTENDED_SRGB", "LINEAR_EXTENDED_SRGB",
+    "LINEAR_SRGB", "NTSC_1953", "PRO_PHOTO_RGB", "SMPTE_C", "SRGB",
+]
+
 default_values = {
     "debug": 0,
     "proc": "decode",
     "width": -1,
     "height": -1,
+    "inPreferredColorSpace": None,
     "tmpdir": "/sdcard",
     "infile": None,
     "outfile": None,
@@ -157,7 +165,7 @@ def analyze_rgba_dir(directory, outfile, width, height, debug):
             fout.write(f"{infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n")
 
 
-def decode_heic_using_imgapp(infile, outfile, tmpdir, debug):
+def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, debug):
     # 1. push the file
     infile_name = os.path.split(infile)[1]
     infile_path = os.path.join(tmpdir, f"{infile_name}")
@@ -169,7 +177,8 @@ def decode_heic_using_imgapp(infile, outfile, tmpdir, debug):
     outfile = outfile if outfile else f"{infile}.rgba"
     outfile_name = os.path.split(outfile)[1]
     outfile_path = os.path.join(tmpdir, f"{outfile_name}")
-    command = f"adb shell am start -W -e decode a -e input {infile_path} -e output {outfile_path} com.facebook.imgapp/.MainActivity"
+    inPreferredColorSpace_str = "" if inPreferredColorSpace is None else f"-e inPreferredColorSpace {inPreferredColorSpace}"
+    command = f"adb shell am start -W -e decode a -e input {infile_path} {inPreferredColorSpace_str} -e output {outfile_path} com.facebook.imgapp/.MainActivity"
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
 
@@ -268,6 +277,21 @@ def get_options(argv):
         help="use <width>x<height>",
     )
     parser.add_argument(
+        "--inPreferredColorSpace",
+        action="store",
+        type=str,
+        dest="inPreferredColorSpace",
+        default=default_values["inPreferredColorSpace"],
+        choices=INPREFERREDCOLORSPACE_CHOICES,
+        metavar="[%s]"
+        % (
+            " | ".join(
+                INPREFERREDCOLORSPACE_CHOICES,
+            )
+        ),
+        help="inPreferredColorSpace parameter",
+    )
+    parser.add_argument(
         "--tmpdir",
         action="store",
         dest="tmpdir",
@@ -310,7 +334,7 @@ def main(argv):
         print(options)
     # do something
     if options.proc == "decode":
-        decode_heic_using_imgapp(options.infile, options.outfile, options.tmpdir, options.debug)
+        decode_heic_using_imgapp(options.infile, options.outfile, options.inPreferredColorSpace, options.tmpdir, options.debug)
     elif options.proc == "analyze":
         if os.path.isdir(options.infile):
             analyze_rgba_dir(options.infile, options.outfile, options.width, options.height, options.debug)
