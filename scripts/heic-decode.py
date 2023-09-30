@@ -23,6 +23,7 @@ import math
 import os
 import subprocess
 import sys
+import tempfile
 
 
 PROC_CHOICES = ["decode", "analyze"]
@@ -188,6 +189,8 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     # 3. run imgapp
     outfile = outfile if outfile else f"{infile}.rgba"
     outfile_name = os.path.split(outfile)[1]
+    tmp_suffix = os.path.split(tempfile.NamedTemporaryFile().name)[1]
+    outfile_name = f"{outfile_name}.{tmp_suffix}"
     outfile_path = os.path.join(tmpdir, f"{outfile_name}")
     inPreferredColorSpace_str = "" if inPreferredColorSpace is None else f"-e inPreferredColorSpace {inPreferredColorSpace}"
     command = f"adb shell am start -W -e decode a -e input {infile_path} {inPreferredColorSpace_str} -e output {outfile_path} com.facebook.imgapp/.MainActivity"
