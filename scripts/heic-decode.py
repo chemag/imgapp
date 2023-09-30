@@ -21,7 +21,6 @@ import argparse
 import glob
 import math
 import os
-import pandas as pd
 import subprocess
 import sys
 
@@ -94,7 +93,7 @@ class HistogramCounter:
         self.bins = {}
 
     def add(self, val):
-        self.bins[val] = 1 if not val in self.bins else self.bins[val] + 1
+        self.bins[val] = 1 if val not in self.bins else self.bins[val] + 1
 
     def get_mean(self):
         # https://stackoverflow.com/q/50786699
