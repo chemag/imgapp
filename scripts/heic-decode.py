@@ -299,7 +299,16 @@ def analyze_file(infile, width, height, debug):
     elif mime_type == "image/heic":
         (R, G, B, A) = analyze_heic_file(infile, debug)
     else:
-        raise AssertionError(f"unsupported file: {infile} mime_type: {mime_type}")
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
     # calculate the average and variance
     Rmean = round(R.get_mean())
     Rstddev = R.get_stddev()
@@ -322,6 +331,8 @@ def analyze_dir(directory, outfile, width, height, debug):
         (Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev) = analyze_file(
             infile, width, height, debug
         )
+        if Rmean is None:
+            continue
         results.append(
             [infile, Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev]
         )
