@@ -19,6 +19,7 @@ components (R, G, B, and A).
 
 import argparse
 import glob
+import magic
 import math
 import os
 import subprocess
@@ -129,6 +130,12 @@ class HistogramCounter:
     def add(self, val):
         self.bins[val] = 1 if val not in self.bins else self.bins[val] + 1
 
+    def append(self, histogram_counter):
+        for k, v in histogram_counter.bins.items():
+            if k not in self.bins:
+                self.bins[k] = 0
+            self.bins[k] += histogram_counter.bins[k]
+
     def get_mean(self):
         # https://stackoverflow.com/q/50786699
         s = 0
@@ -169,35 +176,38 @@ def analyze_rgba_file(infile, width, height, debug):
         i += 1
         A.add(contents[i])
         i += 1
+    return R, G, B, A
+
+
+def analyze_file(infile, width, height, debug):
+    file_extension = os.path.splitext(infile)
+    mime_type = magic.detect_from_filename(infile).mime_type
+    if file_extension == "rgba":
+        (R, G, B, A) = analyze_rgba_file(infile, width, height, debug)
+    else:
+        raise AssertionError(f"unsupported file: {infile} mime_type: {mime_type}")
     # calculate the average and variance
-    return (
-        round(R.get_mean()),
-        R.get_stddev(),
-        round(G.get_mean()),
-        G.get_stddev(),
-        round(B.get_mean()),
-        B.get_stddev(),
-        round(A.get_mean()),
-        A.get_stddev(),
-    )
+    Rmean = round(R.get_mean())
+    Rstddev = R.get_stddev()
+    Gmean = round(G.get_mean())
+    Gstddev = G.get_stddev()
+    Bmean = round(B.get_mean())
+    Bstddev = B.get_stddev()
+    Amean = round(A.get_mean())
+    Astddev = A.get_stddev()
+    return (Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev)
 
 
-def analyze_rgba_dir(directory, outfile, width, height, debug):
+def analyze_dir(directory, outfile, width, height, debug):
     # calculate all R/G/B/A values
     infile_list = glob.glob(os.path.join(directory, "*.rgba"))
+    infile_list.append(glob.glob(os.path.join(directory, "*.heic")))
     infile_list.sort()
     results = []
     for infile in infile_list:
-        (
-            Rmean,
-            Rstddev,
-            Gmean,
-            Gstddev,
-            Bmean,
-            Bstddev,
-            Amean,
-            Astddev,
-        ) = analyze_rgba_file(infile, width, height, debug)
+        (Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev) = analyze_file(
+            infile, width, height, debug
+        )
         results.append(
             [infile, Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev]
         )
@@ -421,7 +431,7 @@ def main(argv):
         )
     elif options.proc == "analyze":
         if os.path.isdir(options.infile):
-            analyze_rgba_dir(
+            analyze_dir(
                 options.infile,
                 options.outfile,
                 options.width,
@@ -438,7 +448,7 @@ def main(argv):
                 Bstddev,
                 Amean,
                 Astddev,
-            ) = analyze_rgba_file(
+            ) = analyze_file(
                 options.infile, options.width, options.height, options.debug
             )
             print(
