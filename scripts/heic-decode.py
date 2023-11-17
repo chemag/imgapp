@@ -26,7 +26,7 @@ import sys
 import tempfile
 
 
-PROC_CHOICES = ["decode", "analyze"]
+PROC_CHOICES = ["help", "decode", "analyze"]
 
 INPREFERREDCOLORSPACE_CHOICES = [
     "ACES", "ACESCG", "ADOBE_RGB", "BT2020",
@@ -38,7 +38,7 @@ INPREFERREDCOLORSPACE_CHOICES = [
 
 default_values = {
     "debug": 0,
-    "proc": "decode",
+    "proc": "help",
     "width": -1,
     "height": -1,
     "inPreferredColorSpace": None,
@@ -338,6 +338,11 @@ def get_options(argv):
     )
     # do the parsing
     options = parser.parse_args(argv[1:])
+    # implement help
+    if options.proc == "help":
+        parser.print_help()
+        sys.exit(0)
+
     return options
 
 
