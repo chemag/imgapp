@@ -29,10 +29,24 @@ import tempfile
 PROC_CHOICES = ["help", "decode", "analyze"]
 
 INPREFERREDCOLORSPACE_CHOICES = [
-    "ACES", "ACESCG", "ADOBE_RGB", "BT2020",
-    "BT2020_HLG", "BT2020_PQ", "BT709", "CIE_LAB", "CIE_XYZ",
-    "DCI_P3", "DISPLAY_P3", "EXTENDED_SRGB", "LINEAR_EXTENDED_SRGB",
-    "LINEAR_SRGB", "NTSC_1953", "PRO_PHOTO_RGB", "SMPTE_C", "SRGB",
+    "ACES",
+    "ACESCG",
+    "ADOBE_RGB",
+    "BT2020",
+    "BT2020_HLG",
+    "BT2020_PQ",
+    "BT709",
+    "CIE_LAB",
+    "CIE_XYZ",
+    "DCI_P3",
+    "DISPLAY_P3",
+    "EXTENDED_SRGB",
+    "LINEAR_EXTENDED_SRGB",
+    "LINEAR_SRGB",
+    "NTSC_1953",
+    "PRO_PHOTO_RGB",
+    "SMPTE_C",
+    "SRGB",
     "None",
 ]
 
@@ -94,7 +108,7 @@ def get_heic_resolution(infile, debug):
     for line in out.splitlines():
         if line.startswith(b"image: "):
             # 'image: 1024x1024 (id=1), primary'
-            width, height = (int(v) for v in line.decode('ascii').split()[1].split("x"))
+            width, height = (int(v) for v in line.decode("ascii").split()[1].split("x"))
     return width, height
 
 
@@ -121,7 +135,7 @@ class HistogramCounter:
         t = 0
         number_sum = 0
         for val, number in self.bins.items():
-            t += number * (val - mean)**2
+            t += number * (val - mean) ** 2
             number_sum += number
         stddev = math.sqrt(t / number_sum)
         return stddev
@@ -146,10 +160,16 @@ def analyze_rgba_file(infile, width, height, debug):
         A.add(contents[i])
         i += 1
     # calculate the average and variance
-    return (round(R.get_mean()), R.get_stddev(),
-            round(G.get_mean()), G.get_stddev(),
-            round(B.get_mean()), B.get_stddev(),
-            round(A.get_mean()), A.get_stddev())
+    return (
+        round(R.get_mean()),
+        R.get_stddev(),
+        round(G.get_mean()),
+        G.get_stddev(),
+        round(B.get_mean()),
+        B.get_stddev(),
+        round(A.get_mean()),
+        A.get_stddev(),
+    )
 
 
 def analyze_rgba_dir(directory, outfile, width, height, debug):
@@ -158,13 +178,36 @@ def analyze_rgba_dir(directory, outfile, width, height, debug):
     infile_list.sort()
     results = []
     for infile in infile_list:
-        Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev = analyze_rgba_file(infile, width, height, debug)
-        results.append([infile, Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev])
+        (
+            Rmean,
+            Rstddev,
+            Gmean,
+            Gstddev,
+            Bmean,
+            Bstddev,
+            Amean,
+            Astddev,
+        ) = analyze_rgba_file(infile, width, height, debug)
+        results.append(
+            [infile, Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev]
+        )
     # write CSV output
     with open(outfile, "w") as fout:
         fout.write("filename,rmean,rstddev,gmean,gstddev,bmean,bstddev,amean,astddev\n")
-        for (infile, Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev) in results:
-            fout.write(f"{infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n")
+        for (
+            infile,
+            Rmean,
+            Rstddev,
+            Gmean,
+            Gstddev,
+            Bmean,
+            Bstddev,
+            Amean,
+            Astddev,
+        ) in results:
+            fout.write(
+                f"{infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n"
+            )
 
 
 def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, debug):
@@ -359,13 +402,38 @@ def main(argv):
         print(options)
     # do something
     if options.proc == "decode":
-        decode_heic_using_imgapp(options.infile, options.outfile, options.inPreferredColorSpace, options.tmpdir, options.debug)
+        decode_heic_using_imgapp(
+            options.infile,
+            options.outfile,
+            options.inPreferredColorSpace,
+            options.tmpdir,
+            options.debug,
+        )
     elif options.proc == "analyze":
         if os.path.isdir(options.infile):
-            analyze_rgba_dir(options.infile, options.outfile, options.width, options.height, options.debug)
+            analyze_rgba_dir(
+                options.infile,
+                options.outfile,
+                options.width,
+                options.height,
+                options.debug,
+            )
         elif os.path.isfile(options.infile):
-            Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev = analyze_rgba_file(options.infile, options.width, options.height, options.debug)
-            print(f"{options.infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n")
+            (
+                Rmean,
+                Rstddev,
+                Gmean,
+                Gstddev,
+                Bmean,
+                Bstddev,
+                Amean,
+                Astddev,
+            ) = analyze_rgba_file(
+                options.infile, options.width, options.height, options.debug
+            )
+            print(
+                f"{options.infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n"
+            )
 
 
 if __name__ == "__main__":
