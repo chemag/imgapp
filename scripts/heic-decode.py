@@ -118,6 +118,10 @@ def get_heic_resolution(infile, debug):
 
 
 def get_image_resolution(infile, debug):
+    # heic path is different
+    mime_type = magic.detect_from_filename(infile).mime_type
+    if mime_type == "image/heic":
+        return get_heic_resolution(infile, debug)
     # 1. run ffprobe
     command = f"ffprobe -v 0 -of csv='p=0' -select_streams v:0 -show_entries stream=width,height {infile}"
     returncode, out, err = run(command, debug=debug)
@@ -564,7 +568,7 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     assert returncode == 0, "error: %s" % err
 
     # 4. spin until the outfile path is done
-    width, height = get_heic_resolution(infile, debug)
+    width, height = get_image_resolution(infile, debug)
     expected_size = 4 * width * height
     while True:
         command = f"adb shell stat -c %s {outfile_path}"
