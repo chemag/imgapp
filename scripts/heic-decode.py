@@ -551,9 +551,9 @@ def main(argv):
     # parse options
     options = get_options(argv)
     # get infile/outfile
-    if options.infile == "-":
+    if options.infile == "-" or options.infile is None:
         options.infile = "/dev/fd/0"
-    if options.outfile == "-":
+    if options.outfile == "-" or options.outfile is None:
         options.outfile = "/dev/fd/1"
     # print results
     if options.debug > 0:
