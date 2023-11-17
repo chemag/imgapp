@@ -112,6 +112,16 @@ def get_heic_resolution(infile, debug):
     return width, height
 
 
+def get_image_resolution(infile, debug):
+    # 1. run ffprobe
+    command = f"ffprobe -v 0 -of csv='p=0' -select_streams v:0 -show_entries stream=width,height {infile}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    # 2. parse ffprobe output
+    width, height = (int(v) for v in out.decode("ascii").split(","))
+    return width, height
+
+
 class HistogramCounter:
     def __init__(self):
         self.bins = {}
