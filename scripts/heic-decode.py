@@ -237,6 +237,7 @@ def analyze_zip_file(infile, debug):
     width, height = get_image_resolution(infile_image, debug)
     (
         _,
+        mime_type,
         R,
         G,
         B,
@@ -250,6 +251,7 @@ def analyze_zip_file(infile, debug):
     shutil.rmtree(tmp_dir)
     return (
         infile_final,
+        mime_type,
         R,
         G,
         B,
@@ -438,10 +440,10 @@ def analyze_file(infile, width, height, debug):
     elif mime_type == "image/png":
         R, G, B, A, Y, U, V = analyze_png_file(infile, debug)
     elif mime_type == "application/zip":
-        infile, R, G, B, A, Y, U, V = analyze_zip_file(infile, debug)
+        infile, mime_type, R, G, B, A, Y, U, V = analyze_zip_file(infile, debug)
     else:
         infile = R = G = B = A = Y = U = V = None
-    return infile, R, G, B, A, Y, U, V
+    return infile, mime_type, R, G, B, A, Y, U, V
 
 
 def parse_histograms(R, G, B, A, Y, U, V):
@@ -510,7 +512,9 @@ def analyze_dir(directory, outfile, width, height, debug):
 def analyze_files(infile_list, outfile, width, height, debug):
     results = []
     for infile in infile_list:
-        (infile_full, R, G, B, A, Y, U, V) = analyze_file(infile, width, height, debug)
+        (infile_full, mime_type, R, G, B, A, Y, U, V) = analyze_file(
+            infile, width, height, debug
+        )
         if R is None:
             continue
         (
@@ -532,6 +536,7 @@ def analyze_files(infile_list, outfile, width, height, debug):
         results.append(
             [
                 infile_full,
+                mime_type,
                 Rmean,
                 Rstddev,
                 Gmean,
@@ -551,10 +556,11 @@ def analyze_files(infile_list, outfile, width, height, debug):
     # write CSV output
     with open(outfile, "w") as fout:
         fout.write(
-            "filename,rmean,rstddev,gmean,gstddev,bmean,bstddev,amean,astddev,ymean,ystddev,umean,ustddev,vmean,vstddev\n"
+            "filename,mime_type,rmean,rstddev,gmean,gstddev,bmean,bstddev,amean,astddev,ymean,ystddev,umean,ustddev,vmean,vstddev\n"
         )
         for (
             infile,
+            mime_type,
             Rmean,
             Rstddev,
             Gmean,
@@ -571,7 +577,7 @@ def analyze_files(infile_list, outfile, width, height, debug):
             Vstddev,
         ) in results:
             fout.write(
-                f"{infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
+                f"{infile},{mime_type},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
             )
 
 
@@ -802,6 +808,7 @@ def main(argv):
         elif os.path.isfile(options.infile):
             (
                 infile_full,
+                mime_type,
                 R,
                 G,
                 B,
@@ -829,7 +836,7 @@ def main(argv):
                 Vstddev,
             ) = parse_histograms(R, G, B, A, Y, U, V)
             print(
-                f"{infile_full},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
+                f"{infile_full},{mime_type},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
             )
 
 
