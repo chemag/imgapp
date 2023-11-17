@@ -389,22 +389,11 @@ def analyze_file(infile, width, height, debug):
     elif mime_type == "image/png":
         R, G, B, A, Y, U, V = analyze_png_file(infile, debug)
     else:
-        return (
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
+        infile = R = G = B = A = Y = U = V = None
+    return infile, R, G, B, A, Y, U, V
+
+
+def parse_histograms(R, G, B, A, Y, U, V):
     # calculate the average and variance
     if R is not None:
         Rmean = round(R.get_mean())
@@ -470,6 +459,9 @@ def analyze_dir(directory, outfile, width, height, debug):
 def analyze_files(infile_list, outfile, width, height, debug):
     results = []
     for infile in infile_list:
+        (infile_full, R, G, B, A, Y, U, V) = analyze_file(infile, width, height, debug)
+        if R is None:
+            continue
         (
             Rmean,
             Rstddev,
@@ -485,12 +477,10 @@ def analyze_files(infile_list, outfile, width, height, debug):
             Ustddev,
             Vmean,
             Vstddev,
-        ) = analyze_file(infile, width, height, debug)
-        if Rmean is None:
-            continue
+        ) = parse_histograms(R, G, B, A, Y, U, V)
         results.append(
             [
-                infile,
+                infile_full,
                 Rmean,
                 Rstddev,
                 Gmean,
@@ -760,6 +750,18 @@ def main(argv):
             )
         elif os.path.isfile(options.infile):
             (
+                infile_full,
+                R,
+                G,
+                B,
+                A,
+                Y,
+                U,
+                V,
+            ) = analyze_file(
+                options.infile, options.width, options.height, options.debug
+            )
+            (
                 Rmean,
                 Rstddev,
                 Gmean,
@@ -774,11 +776,9 @@ def main(argv):
                 Ustddev,
                 Vmean,
                 Vstddev,
-            ) = analyze_file(
-                options.infile, options.width, options.height, options.debug
-            )
+            ) = parse_histograms(R, G, B, A, Y, U, V)
             print(
-                f"{options.infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
+                f"{infile_full},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
             )
 
 
