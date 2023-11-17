@@ -183,6 +183,30 @@ def analyze_rgba_file(infile, width, height, debug):
     return R, G, B, A
 
 
+def analyze_y4m_file(infile, debug):
+    width, height = get_image_resolution(infile, debug)
+    # convert to yuv444p for easier parsing
+    tmp_file_yuv = infile + ".yuv"
+    command = f"ffmpeg -y -i {infile} -f rawvideo -pix_fmt yuv444p {tmp_file_yuv}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    # read yuv444p file
+    with open(tmp_file_yuv, "rb") as fin:
+        contents = fin.read()
+    # get histogram of Y, U, and V samples
+    Y = HistogramCounter()
+    U = HistogramCounter()
+    V = HistogramCounter()
+    plane_length = width * height
+    for i in range(plane_length):
+        Y.add(contents[i])
+    for i in range(plane_length):
+        U.add(contents[i + plane_length])
+    for i in range(plane_length):
+        V.add(contents[i + 2 * plane_length])
+    return Y, U, V
+
+
 def analyze_jpeg_file(infile, debug):
     # get width and height
     width, height = get_image_resolution(infile, debug)
@@ -193,20 +217,24 @@ def analyze_jpeg_file(infile, debug):
     command = f"ffmpeg -y -i {infile} {tmp_file_y4m}"
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
+    Y, U, V = analyze_y4m_file(tmp_file_y4m, debug)
     # convert to rgba file
     command = f"ffmpeg -y -i {tmp_file_y4m} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
     (R, G, B, A) = analyze_rgba_file(tmp_file_rgba, width, height, debug)
-    return R, G, B, A
+    return R, G, B, A, Y, U, V
 
 
 def analyze_heic_file(infile, debug):
-    # 0. init histogram of R, G, B, and A samples
+    # 0. init histogram of R, G, B, A, Y, U, and V samples
     R = HistogramCounter()
     G = HistogramCounter()
     B = HistogramCounter()
     A = HistogramCounter()
+    Y = HistogramCounter()
+    U = HistogramCounter()
+    V = HistogramCounter()
     # 1. get list of items in heic file
     command = f"isobmff-parse.py --list-items -i {infile}"
     returncode, out, err = run(command, debug=debug)
@@ -292,6 +320,21 @@ def analyze_heic_file(infile, debug):
                     crop_filter = f"-vf crop={width_last_column}:{height}:x=0:y=0"
                 elif is_last_row(tile_id, columns_minus_one, rows_minus_one):
                     crop_filter = f"-vf crop={width}:{height_last_column}:x=0:y=0"
+            # crop file if needed
+            if crop_filter:
+                tmp_file_y4m_cropped = tmp_file_y4m + ".y4m"
+                command = (
+                    f"ffmpeg -y -i {tmp_file_y4m} {crop_filter} {tmp_file_y4m_cropped}"
+                )
+                returncode, out, err = run(command, debug=debug)
+                assert returncode == 0, "error: %s" % err
+                Ytmp, Utmp, Vtmp = analyze_y4m_file(tmp_file_y4m_cropped, debug)
+            else:
+                Ytmp, Utmp, Vtmp = analyze_y4m_file(tmp_file_y4m, debug)
+            Y.append(Ytmp)
+            U.append(Utmp)
+            V.append(Vtmp)
+
             # convert to rgba file
             command = f"ffmpeg -y -i {tmp_file_y4m} {crop_filter} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
             returncode, out, err = run(command, debug=debug)
@@ -301,24 +344,25 @@ def analyze_heic_file(infile, debug):
             )
             if debug > 0:
                 print(
-                    f"{infile=} {item_id=} {item_type=} Rtmp: {Rtmp.bins} Gtmp: {Gtmp.bins} Btmp: {Btmp.bins}"
+                    f"{infile=} {item_id=} {item_type=} Rtmp: {Rtmp.bins} Gtmp: {Gtmp.bins} Btmp: {Btmp.bins} Atmp: {Atmp.bins} Ytmp: {Ytmp.bins} Utmp: {Utmp.bins} Vtmp: {Vtmp.bins}"
                 )
             R.append(Rtmp)
             G.append(Gtmp)
             B.append(Btmp)
             A.append(Atmp)
-    return R, G, B, A
+    return R, G, B, A, Y, U, V
 
 
 def analyze_file(infile, width, height, debug):
     file_extension = os.path.splitext(infile)
     mime_type = magic.detect_from_filename(infile).mime_type
     if file_extension == "rgba":
-        (R, G, B, A) = analyze_rgba_file(infile, width, height, debug)
+        R, G, B, A = analyze_rgba_file(infile, width, height, debug)
+        Y, U, V = None, None, None
     elif mime_type == "image/heic":
-        (R, G, B, A) = analyze_heic_file(infile, debug)
+        R, G, B, A, Y, U, V = analyze_heic_file(infile, debug)
     elif mime_type == "image/jpeg":
-        (R, G, B, A) = analyze_jpeg_file(infile, debug)
+        R, G, B, A, Y, U, V = analyze_jpeg_file(infile, debug)
     else:
         return (
             None,
@@ -329,17 +373,65 @@ def analyze_file(infile, width, height, debug):
             None,
             None,
             None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         )
     # calculate the average and variance
-    Rmean = round(R.get_mean())
-    Rstddev = R.get_stddev()
-    Gmean = round(G.get_mean())
-    Gstddev = G.get_stddev()
-    Bmean = round(B.get_mean())
-    Bstddev = B.get_stddev()
-    Amean = round(A.get_mean())
-    Astddev = A.get_stddev()
-    return (Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev)
+    if R is not None:
+        Rmean = round(R.get_mean())
+        Rstddev = R.get_stddev()
+    else:
+        Rmean = Rstddev = None
+    if G is not None:
+        Gmean = round(G.get_mean())
+        Gstddev = G.get_stddev()
+    else:
+        Gmean = Gstddev = None
+    if B is not None:
+        Bmean = round(B.get_mean())
+        Bstddev = B.get_stddev()
+    else:
+        Bmean = Bstddev = None
+    if A is not None:
+        Amean = round(A.get_mean())
+        Astddev = A.get_stddev()
+    else:
+        Amean = Astddev = None
+    if Y is not None:
+        Ymean = round(Y.get_mean())
+        Ystddev = Y.get_stddev()
+    else:
+        Ymean = Ystddev = None
+    if U is not None:
+        Umean = round(U.get_mean())
+        Ustddev = U.get_stddev()
+    else:
+        Umean = Ustddev = None
+    if V is not None:
+        Vmean = round(V.get_mean())
+        Vstddev = V.get_stddev()
+    else:
+        Vmean = Vstddev = None
+    return (
+        Rmean,
+        Rstddev,
+        Gmean,
+        Gstddev,
+        Bmean,
+        Bstddev,
+        Amean,
+        Astddev,
+        Ymean,
+        Ystddev,
+        Umean,
+        Ustddev,
+        Vmean,
+        Vstddev,
+    )
 
 
 def analyze_dir(directory, outfile, width, height, debug):
@@ -353,17 +445,48 @@ def analyze_dir(directory, outfile, width, height, debug):
 def analyze_files(infile_list, outfile, width, height, debug):
     results = []
     for infile in infile_list:
-        (Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev) = analyze_file(
-            infile, width, height, debug
-        )
+        (
+            Rmean,
+            Rstddev,
+            Gmean,
+            Gstddev,
+            Bmean,
+            Bstddev,
+            Amean,
+            Astddev,
+            Ymean,
+            Ystddev,
+            Umean,
+            Ustddev,
+            Vmean,
+            Vstddev,
+        ) = analyze_file(infile, width, height, debug)
         if Rmean is None:
             continue
         results.append(
-            [infile, Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev]
+            [
+                infile,
+                Rmean,
+                Rstddev,
+                Gmean,
+                Gstddev,
+                Bmean,
+                Bstddev,
+                Amean,
+                Astddev,
+                Ymean,
+                Ystddev,
+                Umean,
+                Ustddev,
+                Vmean,
+                Vstddev,
+            ]
         )
     # write CSV output
     with open(outfile, "w") as fout:
-        fout.write("filename,rmean,rstddev,gmean,gstddev,bmean,bstddev,amean,astddev\n")
+        fout.write(
+            "filename,rmean,rstddev,gmean,gstddev,bmean,bstddev,amean,astddev,ymean,ystddev,umean,ustddev,vmean,vstddev\n"
+        )
         for (
             infile,
             Rmean,
@@ -374,9 +497,15 @@ def analyze_files(infile_list, outfile, width, height, debug):
             Bstddev,
             Amean,
             Astddev,
+            Ymean,
+            Ystddev,
+            Umean,
+            Ustddev,
+            Vmean,
+            Vstddev,
         ) in results:
             fout.write(
-                f"{infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n"
+                f"{infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
             )
 
 
@@ -614,11 +743,17 @@ def main(argv):
                 Bstddev,
                 Amean,
                 Astddev,
+                Ymean,
+                Ystddev,
+                Umean,
+                Ustddev,
+                Vmean,
+                Vstddev,
             ) = analyze_file(
                 options.infile, options.width, options.height, options.debug
             )
             print(
-                f"{options.infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev}\n"
+                f"{options.infile},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
             )
 
 
