@@ -216,6 +216,8 @@ def analyze_y4m_file(infile, debug):
 
 
 def analyze_zip_file(infile, debug):
+    if debug > 0:
+        print(f"analyze_zip_file: processing {infile}")
     tmp_dir = tempfile.mkdtemp(prefix="imgapp.tmp.", dir="/tmp")
     # unzip file
     command = f"unzip -d {tmp_dir} {infile}"
@@ -777,7 +779,7 @@ def main(argv):
     if options.outfile == "-" or options.outfile is None:
         options.outfile = "/dev/fd/1"
     # print results
-    if options.debug > 0:
+    if options.debug > 1:
         print(options)
     # do something
     if options.proc == "decode":
