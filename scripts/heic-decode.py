@@ -183,6 +183,24 @@ def analyze_rgba_file(infile, width, height, debug):
     return R, G, B, A
 
 
+def analyze_jpeg_file(infile, debug):
+    # get width and height
+    width, height = get_image_resolution(infile, debug)
+    tmp_file = tempfile.NamedTemporaryFile().name
+    tmp_file_y4m = tmp_file + ".y4m"
+    tmp_file_rgba = tmp_file_y4m + ".rgba"
+    # convert jpeg to y4m file
+    command = f"ffmpeg -y -i {infile} {tmp_file_y4m}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    # convert to rgba file
+    command = f"ffmpeg -y -i {tmp_file_y4m} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    (R, G, B, A) = analyze_rgba_file(tmp_file_rgba, width, height, debug)
+    return R, G, B, A
+
+
 def analyze_heic_file(infile, debug):
     # 0. init histogram of R, G, B, and A samples
     R = HistogramCounter()
@@ -299,6 +317,8 @@ def analyze_file(infile, width, height, debug):
         (R, G, B, A) = analyze_rgba_file(infile, width, height, debug)
     elif mime_type == "image/heic":
         (R, G, B, A) = analyze_heic_file(infile, debug)
+    elif mime_type == "image/jpeg":
+        (R, G, B, A) = analyze_jpeg_file(infile, debug)
     else:
         return (
             None,
