@@ -24,6 +24,8 @@ import glob
 import magic
 import math
 import os
+import pathlib
+import shutil
 import struct
 import subprocess
 import sys
@@ -53,6 +55,8 @@ INPREFERREDCOLORSPACE_CHOICES = [
     "SRGB",
     "None",
 ]
+
+ANALYSIS_SUPPORTED_IMAGE_FORMATS = ("image/heic", "image/png", "image/jpeg")
 
 default_values = {
     "debug": 0,
@@ -209,6 +213,51 @@ def analyze_y4m_file(infile, debug):
     for i in range(plane_length):
         V.add(contents[i + 2 * plane_length])
     return Y, U, V
+
+
+def analyze_zip_file(infile, debug):
+    tmp_dir = tempfile.mkdtemp(prefix="imgapp.tmp.", dir="/tmp")
+    # unzip file
+    command = f"unzip -d {tmp_dir} {infile}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    # get list of files
+    infile_tmp_list = list(
+        str(path.resolve()) for path in pathlib.Path(tmp_dir).rglob("*")
+    )
+    # filter interesting files
+    infile_list = []
+    for infile_tmp in infile_tmp_list:
+        mime_type = magic.detect_from_filename(infile_tmp).mime_type
+        if mime_type not in ANALYSIS_SUPPORTED_IMAGE_FORMATS:
+            continue
+        infile_list.append(infile_tmp)
+    # select a single one
+    infile_image = infile_list[0]
+    width, height = get_image_resolution(infile_image, debug)
+    (
+        _,
+        R,
+        G,
+        B,
+        A,
+        Y,
+        U,
+        V,
+    ) = analyze_file(infile_image, width, height, debug)
+    infile_final = infile + "::" + os.path.basename(infile_image)
+    # clean up
+    shutil.rmtree(tmp_dir)
+    return (
+        infile_final,
+        R,
+        G,
+        B,
+        A,
+        Y,
+        U,
+        V,
+    )
 
 
 def analyze_jpeg_file(infile, debug):
@@ -388,6 +437,8 @@ def analyze_file(infile, width, height, debug):
         R, G, B, A, Y, U, V = analyze_jpeg_file(infile, debug)
     elif mime_type == "image/png":
         R, G, B, A, Y, U, V = analyze_png_file(infile, debug)
+    elif mime_type == "application/zip":
+        infile, R, G, B, A, Y, U, V = analyze_zip_file(infile, debug)
     else:
         infile = R = G = B = A = Y = U = V = None
     return infile, R, G, B, A, Y, U, V
