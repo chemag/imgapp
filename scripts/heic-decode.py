@@ -62,6 +62,7 @@ default_values = {
     "inPreferredColorSpace": None,
     "tmpdir": "/sdcard",
     "infile": None,
+    "infiles": None,
     "outfile": None,
 }
 
@@ -326,6 +327,10 @@ def analyze_dir(directory, outfile, width, height, debug):
     infile_list = glob.glob(os.path.join(directory, "*.rgba"))
     infile_list.append(glob.glob(os.path.join(directory, "*.heic")))
     infile_list.sort()
+    return analyze_files(infile_list, outfile, width, height, debug)
+
+
+def analyze_files(infile_list, outfile, width, height, debug):
     results = []
     for infile in infile_list:
         (Rmean, Rstddev, Gmean, Gstddev, Bmean, Bstddev, Amean, Astddev) = analyze_file(
@@ -517,6 +522,14 @@ def get_options(argv):
         help="input file",
     )
     parser.add_argument(
+        "--infiles",
+        type=str,
+        nargs="+",
+        default=default_values["infiles"],
+        metavar="input-files",
+        help="input files",
+    )
+    parser.add_argument(
         "-o",
         "--outfile",
         type=str,
@@ -555,7 +568,15 @@ def main(argv):
             options.debug,
         )
     elif options.proc == "analyze":
-        if os.path.isdir(options.infile):
+        if options.infiles is not None:
+            analyze_files(
+                options.infiles,
+                options.outfile,
+                options.width,
+                options.height,
+                options.debug,
+            )
+        elif os.path.isdir(options.infile):
             analyze_dir(
                 options.infile,
                 options.outfile,
