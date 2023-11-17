@@ -11,17 +11,20 @@ into a `Bitmap`. Finally, it converts the `Bitmap` pixel
 information (packed ARGB) into a packed RGBA file, which is the
 output file.
 
-The second function analyzes a heic file (or set of heic files)
+The second function analyzes an image file (or set of image files)
 providing the average and variance of each of the color
-components (R, G, B, and A).
+components (R, G, B, and A). Currently it supports RGBA and
+HEIC files.
 """
 
 
 import argparse
+import csv
 import glob
 import magic
 import math
 import os
+import struct
 import subprocess
 import sys
 import tempfile
@@ -179,11 +182,122 @@ def analyze_rgba_file(infile, width, height, debug):
     return R, G, B, A
 
 
+def analyze_heic_file(infile, debug):
+    # 0. init histogram of R, G, B, and A samples
+    R = HistogramCounter()
+    G = HistogramCounter()
+    B = HistogramCounter()
+    A = HistogramCounter()
+    # 1. get list of items in heic file
+    command = f"isobmff-parse.py --list-items -i {infile}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    # parse the item list
+    item_list = []
+    for row in csv.reader(out.decode("ascii").splitlines()):
+        if row[0] == "item_id":
+            continue
+        item_id, item_type = row[0], row[2]
+        item_list.append((item_id, item_type))
+    # 2. check whether there is a grid for tiles
+    tmp_file = tempfile.NamedTemporaryFile().name
+    tmp_file_grid = tempfile.NamedTemporaryFile().name + ".grid.bin"
+    is_grid = False
+    for item_id, item_type in item_list:
+        if item_type == "grid":
+            is_grid = True
+            command = f"isobmff-parse.py --extract-item -i {infile} --item-id {item_id} -o {tmp_file_grid}"
+            returncode, out, err = run(command, debug=debug)
+            assert returncode == 0, "error: %s" % err
+            # parse the grid
+            with open(tmp_file_grid, "rb") as fin:
+                grid_contents = fin.read()
+            # ISO/IEC 23008-12:2022 Section 6.6.2.3.2
+            grid_unpack_fmt = "BBBB"
+            version, flags, rows_minus_one, columns_minus_one = struct.unpack(
+                grid_unpack_fmt, grid_contents[:4]
+            )
+            if flags == 0:
+                grid_unpack_fmt_rem = ">HH"
+            elif flags == 1:
+                grid_unpack_fmt_rem = ">II"
+            output_width, output_height = struct.unpack(
+                grid_unpack_fmt_rem, grid_contents[4:]
+            )
+    # 3. extract all the tiles
+    tmp_file_h265 = tmp_file + ".265"
+    tmp_file_y4m = tmp_file_h265 + ".y4m"
+    tmp_file_rgba = tmp_file_y4m + ".rgba"
+    tile_id = -1
+    for item_id, item_type in item_list:
+        tile_id += 1
+        if debug > 0:
+            print(f"{infile=} {item_id=} {item_type=}")
+        if item_type == "hvc1":
+            # extract h265 file
+            command = f"MP4Box -dump-item {item_id}:path={tmp_file_h265} {infile}"
+            returncode, out, err = run(command, debug=debug)
+            assert returncode == 0, "error: %s" % err
+            # convert to y4m file
+            command = f"ffmpeg -y -i {tmp_file_h265} {tmp_file_y4m}"
+            returncode, out, err = run(command, debug=debug)
+            assert returncode == 0, "error: %s" % err
+            # get width and height
+            width, height = get_image_resolution(tmp_file_y4m, debug)
+            crop_filter = ""
+            if is_grid:
+                width_last_column = (
+                    width + output_width - width * (columns_minus_one + 1)
+                )
+                height_last_column = (
+                    height + output_height - height * (rows_minus_one + 1)
+                )
+
+                # check whether we need to cut the image
+                def is_last_column(tile_id, columns_minus_one):
+                    return tile_id % (columns_minus_one + 1) == columns_minus_one
+
+                def is_last_row(tile_id, columns_minus_one, rows_minus_one):
+                    return tile_id >= (columns_minus_one + 1) * rows_minus_one
+
+                def is_last_tile(tile_id, columns_minus_one, rows_minus_one):
+                    return is_last_column(tile_id, columns_minus_one) or is_last_row(
+                        tile_id, columns_minus_one, rows_minus_one
+                    )
+
+                if is_last_tile(tile_id, columns_minus_one, rows_minus_one):
+                    crop_filter = (
+                        f"-vf crop={width_last_column}:{height_last_column}:x=0:y=0"
+                    )
+                elif is_last_column(tile_id, columns_minus_one):
+                    crop_filter = f"-vf crop={width_last_column}:{height}:x=0:y=0"
+                elif is_last_row(tile_id, columns_minus_one, rows_minus_one):
+                    crop_filter = f"-vf crop={width}:{height_last_column}:x=0:y=0"
+            # convert to rgba file
+            command = f"ffmpeg -y -i {tmp_file_y4m} {crop_filter} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
+            returncode, out, err = run(command, debug=debug)
+            assert returncode == 0, "error: %s" % err
+            (Rtmp, Gtmp, Btmp, Atmp) = analyze_rgba_file(
+                tmp_file_rgba, width, height, debug
+            )
+            if debug > 0:
+                print(
+                    f"{infile=} {item_id=} {item_type=} Rtmp: {Rtmp.bins} Gtmp: {Gtmp.bins} Btmp: {Btmp.bins}"
+                )
+            R.append(Rtmp)
+            G.append(Gtmp)
+            B.append(Btmp)
+            A.append(Atmp)
+    return R, G, B, A
+
+
 def analyze_file(infile, width, height, debug):
     file_extension = os.path.splitext(infile)
     mime_type = magic.detect_from_filename(infile).mime_type
     if file_extension == "rgba":
         (R, G, B, A) = analyze_rgba_file(infile, width, height, debug)
+    elif mime_type == "image/heic":
+        (R, G, B, A) = analyze_heic_file(infile, debug)
     else:
         raise AssertionError(f"unsupported file: {infile} mime_type: {mime_type}")
     # calculate the average and variance
