@@ -222,7 +222,26 @@ def analyze_jpeg_file(infile, debug):
     command = f"ffmpeg -y -i {tmp_file_y4m} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
     returncode, out, err = run(command, debug=debug)
     assert returncode == 0, "error: %s" % err
-    (R, G, B, A) = analyze_rgba_file(tmp_file_rgba, width, height, debug)
+    R, G, B, A = analyze_rgba_file(tmp_file_rgba, width, height, debug)
+    return R, G, B, A, Y, U, V
+
+
+def analyze_png_file(infile, debug):
+    # get width and height
+    width, height = get_image_resolution(infile, debug)
+    tmp_file = tempfile.NamedTemporaryFile().name
+    tmp_file_rgba = tmp_file + ".rgba"
+    tmp_file_y4m = tmp_file_rgba + ".y4m"
+    # convert jpeg to rgba file
+    command = f"ffmpeg -y -i {infile} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    R, G, B, A = analyze_rgba_file(tmp_file_rgba, width, height, debug)
+    # convert to y4m file
+    command = f"ffmpeg -y -f rawvideo -pixel_format rgba -video_size {width}x{height} -i {tmp_file_rgba} -pix_fmt yuv444p {tmp_file_y4m}"
+    returncode, out, err = run(command, debug=debug)
+    assert returncode == 0, "error: %s" % err
+    Y, U, V = analyze_y4m_file(tmp_file_y4m, debug)
     return R, G, B, A, Y, U, V
 
 
@@ -339,7 +358,7 @@ def analyze_heic_file(infile, debug):
             command = f"ffmpeg -y -i {tmp_file_y4m} {crop_filter} -f rawvideo -pix_fmt rgba {tmp_file_rgba}"
             returncode, out, err = run(command, debug=debug)
             assert returncode == 0, "error: %s" % err
-            (Rtmp, Gtmp, Btmp, Atmp) = analyze_rgba_file(
+            Rtmp, Gtmp, Btmp, Atmp = analyze_rgba_file(
                 tmp_file_rgba, width, height, debug
             )
             if debug > 0:
@@ -363,6 +382,8 @@ def analyze_file(infile, width, height, debug):
         R, G, B, A, Y, U, V = analyze_heic_file(infile, debug)
     elif mime_type == "image/jpeg":
         R, G, B, A, Y, U, V = analyze_jpeg_file(infile, debug)
+    elif mime_type == "image/png":
+        R, G, B, A, Y, U, V = analyze_png_file(infile, debug)
     else:
         return (
             None,
