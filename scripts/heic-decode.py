@@ -222,7 +222,8 @@ def analyze_zip_file(infile, debug):
     # unzip file
     command = f"unzip -d {tmp_dir} {infile}"
     returncode, out, err = run(command, debug=debug)
-    assert returncode == 0, "error: %s" % err
+    # unzip returns 2 when it needs to strip absolute paths
+    assert returncode in (0, 2), "error: %s" % err
     # get list of files
     infile_tmp_list = list(
         str(path.resolve()) for path in pathlib.Path(tmp_dir).rglob("*")
@@ -230,38 +231,24 @@ def analyze_zip_file(infile, debug):
     # filter interesting files
     infile_list = []
     for infile_tmp in infile_tmp_list:
+        file_extension = os.path.splitext(infile_tmp)
         mime_type = magic.detect_from_filename(infile_tmp).mime_type
-        if mime_type not in ANALYSIS_SUPPORTED_IMAGE_FORMATS:
+        if file_extension != "rgba" and mime_type not in ANALYSIS_SUPPORTED_IMAGE_FORMATS:
             continue
         infile_list.append(infile_tmp)
-    # select a single one
-    infile_image = infile_list[0]
-    width, height = get_image_resolution(infile_image, debug)
-    (
-        _,
-        mime_type,
-        R,
-        G,
-        B,
-        A,
-        Y,
-        U,
-        V,
-    ) = analyze_file(infile_image, width, height, debug)
-    infile_final = infile + "::" + os.path.basename(infile_image)
+    # parse all the internal files
+    results = []
+    for infile_image in infile_list:
+        width, height = get_image_resolution(infile_image, debug)
+        (_, mime_type, *args) = analyze_file_histograms(
+            infile_image, width, height, debug
+        )
+        infile_final = infile + "::" + os.path.basename(infile_image)
+        statistics = parse_histograms(*args)
+        results.append((infile_final, mime_type) + statistics)
     # clean up
     shutil.rmtree(tmp_dir)
-    return (
-        infile_final,
-        mime_type,
-        R,
-        G,
-        B,
-        A,
-        Y,
-        U,
-        V,
-    )
+    return results
 
 
 def analyze_jpeg_file(infile, debug):
@@ -429,7 +416,7 @@ def analyze_heic_file(infile, debug):
     return R, G, B, A, Y, U, V
 
 
-def analyze_file(infile, width, height, debug):
+def analyze_file_histograms(infile, width, height, debug):
     file_extension = os.path.splitext(infile)
     mime_type = magic.detect_from_filename(infile).mime_type
     if file_extension == "rgba":
@@ -441,8 +428,6 @@ def analyze_file(infile, width, height, debug):
         R, G, B, A, Y, U, V = analyze_jpeg_file(infile, debug)
     elif mime_type == "image/png":
         R, G, B, A, Y, U, V = analyze_png_file(infile, debug)
-    elif mime_type == "application/zip":
-        infile, mime_type, R, G, B, A, Y, U, V = analyze_zip_file(infile, debug)
     else:
         infile = R = G = B = A = Y = U = V = None
     return infile, mime_type, R, G, B, A, Y, U, V
@@ -503,58 +488,41 @@ def parse_histograms(R, G, B, A, Y, U, V):
     )
 
 
-def analyze_dir(directory, outfile, width, height, debug):
-    # calculate all R/G/B/A values
-    infile_list = glob.glob(os.path.join(directory, "*.rgba"))
-    infile_list.append(glob.glob(os.path.join(directory, "*.heic")))
-    infile_list.sort()
-    return analyze_files(infile_list, outfile, width, height, debug)
+def analyze_file(infile, width, height, debug):
+    # process zip files first
+    mime_type = magic.detect_from_filename(infile).mime_type
+    if mime_type == "application/zip":
+        return analyze_zip_file(infile, debug)
+    # process image files otherwise
+    (
+        infile_full,
+        mime_type,
+        R,
+        G,
+        B,
+        A,
+        Y,
+        U,
+        V,
+    ) = analyze_file_histograms(infile, width, height, debug)
+    statistics = parse_histograms(R, G, B, A, Y, U, V)
+    return (infile_full, mime_type) + statistics
 
 
 def analyze_files(infile_list, outfile, width, height, debug):
     results = []
     for infile in infile_list:
-        (infile_full, mime_type, R, G, B, A, Y, U, V) = analyze_file(
-            infile, width, height, debug
-        )
-        if R is None:
+        results_file = analyze_file(infile, width, height, debug)
+        if not results_file:
             continue
-        (
-            Rmean,
-            Rstddev,
-            Gmean,
-            Gstddev,
-            Bmean,
-            Bstddev,
-            Amean,
-            Astddev,
-            Ymean,
-            Ystddev,
-            Umean,
-            Ustddev,
-            Vmean,
-            Vstddev,
-        ) = parse_histograms(R, G, B, A, Y, U, V)
-        results.append(
-            [
-                infile_full,
-                mime_type,
-                Rmean,
-                Rstddev,
-                Gmean,
-                Gstddev,
-                Bmean,
-                Bstddev,
-                Amean,
-                Astddev,
-                Ymean,
-                Ystddev,
-                Umean,
-                Ustddev,
-                Vmean,
-                Vstddev,
-            ]
-        )
+        if type(results_file) is list:
+            results += results_file
+        else:
+            results.append(results_file)
+    return results
+
+
+def write_results(results, outfile, debug):
     # write CSV output
     with open(outfile, "w") as fout:
         fout.write(
@@ -792,54 +760,25 @@ def main(argv):
         )
     elif options.proc == "analyze":
         if options.infiles is not None:
-            analyze_files(
+            results = analyze_files(
                 options.infiles,
                 options.outfile,
                 options.width,
                 options.height,
                 options.debug,
             )
-        elif os.path.isdir(options.infile):
-            analyze_dir(
-                options.infile,
-                options.outfile,
-                options.width,
-                options.height,
-                options.debug,
-            )
+            write_results(results, options.outfile, options.debug)
         elif os.path.isfile(options.infile):
-            (
-                infile_full,
-                mime_type,
-                R,
-                G,
-                B,
-                A,
-                Y,
-                U,
-                V,
-            ) = analyze_file(
+            results_file = analyze_file(
                 options.infile, options.width, options.height, options.debug
             )
-            (
-                Rmean,
-                Rstddev,
-                Gmean,
-                Gstddev,
-                Bmean,
-                Bstddev,
-                Amean,
-                Astddev,
-                Ymean,
-                Ystddev,
-                Umean,
-                Ustddev,
-                Vmean,
-                Vstddev,
-            ) = parse_histograms(R, G, B, A, Y, U, V)
-            print(
-                f"{infile_full},{mime_type},{Rmean},{Rstddev},{Gmean},{Gstddev},{Bmean},{Bstddev},{Amean},{Astddev},{Ymean},{Ystddev},{Umean},{Ustddev},{Vmean},{Vstddev}\n"
-            )
+            if type(results_file) is list:
+                results = results_file
+            else:
+                results = [
+                    results_file,
+                ]
+            write_results(results, options.outfile, options.debug)
 
 
 if __name__ == "__main__":
