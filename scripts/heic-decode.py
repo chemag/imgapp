@@ -254,7 +254,7 @@ def analyze_zip_file(infile, debug):
 def analyze_jpeg_file(infile, debug):
     # get width and height
     width, height = get_image_resolution(infile, debug)
-    tmp_file = tempfile.NamedTemporaryFile().name
+    tmp_file = tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name
     tmp_file_y4m = tmp_file + ".y4m"
     tmp_file_rgba = tmp_file_y4m + ".rgba"
     # convert jpeg to y4m file
@@ -273,7 +273,7 @@ def analyze_jpeg_file(infile, debug):
 def analyze_png_file(infile, debug):
     # get width and height
     width, height = get_image_resolution(infile, debug)
-    tmp_file = tempfile.NamedTemporaryFile().name
+    tmp_file = tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name
     tmp_file_rgba = tmp_file + ".rgba"
     tmp_file_y4m = tmp_file_rgba + ".y4m"
     # convert jpeg to rgba file
@@ -310,8 +310,8 @@ def analyze_heic_file(infile, debug):
         item_id, item_type = row[0], row[2]
         item_list.append((item_id, item_type))
     # 2. check whether there is a grid for tiles
-    tmp_file = tempfile.NamedTemporaryFile().name
-    tmp_file_grid = tempfile.NamedTemporaryFile().name + ".grid.bin"
+    tmp_file = tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name
+    tmp_file_grid = tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name + ".grid.bin"
     is_grid = False
     for item_id, item_type in item_list:
         if item_type == "grid":
@@ -574,7 +574,7 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     # 3. run imgapp
     outfile = outfile if outfile else f"{infile}.rgba"
     outfile_name = os.path.split(outfile)[1]
-    tmp_suffix = os.path.split(tempfile.NamedTemporaryFile().name)[1]
+    tmp_suffix = os.path.split(tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name)[1]
     outfile_name = f"{outfile_name}.{tmp_suffix}"
     outfile_path = os.path.join(tmpdir, f"{outfile_name}")
     inPreferredColorSpace_str = ""
