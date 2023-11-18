@@ -233,7 +233,10 @@ def analyze_zip_file(infile, debug):
     for infile_tmp in infile_tmp_list:
         file_extension = os.path.splitext(infile_tmp)
         mime_type = magic.detect_from_filename(infile_tmp).mime_type
-        if file_extension != "rgba" and mime_type not in ANALYSIS_SUPPORTED_IMAGE_FORMATS:
+        if (
+            file_extension != "rgba"
+            and mime_type not in ANALYSIS_SUPPORTED_IMAGE_FORMATS
+        ):
             continue
         infile_list.append(infile_tmp)
     # parse all the internal files
@@ -574,7 +577,9 @@ def decode_heic_using_imgapp(infile, outfile, inPreferredColorSpace, tmpdir, deb
     # 3. run imgapp
     outfile = outfile if outfile else f"{infile}.rgba"
     outfile_name = os.path.split(outfile)[1]
-    tmp_suffix = os.path.split(tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name)[1]
+    tmp_suffix = os.path.split(tempfile.NamedTemporaryFile(prefix="imgapp.tmp.").name)[
+        1
+    ]
     outfile_name = f"{outfile_name}.{tmp_suffix}"
     outfile_path = os.path.join(tmpdir, f"{outfile_name}")
     inPreferredColorSpace_str = ""
